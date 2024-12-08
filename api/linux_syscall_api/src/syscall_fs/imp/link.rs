@@ -5,7 +5,7 @@ extern crate alloc;
 
 use crate::{SyscallError, SyscallResult};
 use axlog::debug;
-use axprocess::link::{create_link, remove_link, FilePath};
+use axprocess::link::{create_link, remove_link, FilePath, AT_FDCWD};
 
 use super::solve_path;
 
@@ -84,4 +84,23 @@ pub fn syscall_unlinkat(args: [usize; 6]) -> SyscallResult {
         return Err(SyscallError::EINVAL);
     }
     Ok(0)
+}
+
+///
+/// 创建链接
+/// #Argmemts
+/// * `target`: *const u8
+/// * `linkpath`  *const u8
+pub fn syscall_link(args: [usize; 6]) -> SyscallResult {
+    let target = args[0] as *const u8;
+    let linkpath = args[1] as *const u8;
+
+
+    let old_path = solve_path(AT_FDCWD, Some(target), false)?;
+    let new_path = solve_path(AT_FDCWD, Some(linkpath), false)?;
+    if create_link(&old_path, &new_path) {
+        Ok(0)
+    } else {
+        Err(SyscallError::EINVAL)
+    }
 }

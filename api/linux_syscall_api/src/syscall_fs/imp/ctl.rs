@@ -1,4 +1,5 @@
 //! 对文件系统的管理,包括目录项的创建、文件权限设置等内容
+use axerrno::AxError;
 use axfs::api::{
     remove_dir, remove_file, rename, ConsoleWinSize, OpenFlags, Permissions, FIOCLEX, FIONBIO,
     TCGETS, TIOCGPGRP, TIOCGWINSZ, TIOCSPGRP,
@@ -446,38 +447,18 @@ pub fn syscall_ioctl(args: [usize; 6]) -> SyscallResult {
         debug!("fd {} is none", fd);
         return Err(SyscallError::EBADF);
     }
-    if process.manual_alloc_for_lazy(argp.into()).is_err() {
+    if argp != 0 && process.manual_alloc_for_lazy(argp.into()).is_err() {
         return Err(SyscallError::EFAULT); // 地址不合法
     }
 
     let file = fd_table[fd].clone().unwrap();
-    match request {
-        TIOCGWINSZ => {
-            let winsize = argp as *mut ConsoleWinSize;
-            unsafe {
-                *winsize = ConsoleWinSize::default();
-            }
-            Ok(0)
-        }
-        TCGETS | TIOCSPGRP => Ok(0),
-        TIOCGPGRP => {
-            unsafe {
-                *(argp as *mut u32) = 0;
-            }
-            Ok(0)
-        }
-        FIONBIO => {
-            let ptr_argp = argp as *const u32;
-            let nonblock = unsafe { ptr::read(ptr_argp) };
-            if nonblock == 1 {
-                let old_status = file.get_status();
-                let _ = file.set_status(old_status | OpenFlags::NON_BLOCK);
-            }
-            Ok(0)
-        }
-        FIOCLEX => Ok(0),
-        _ => Err(SyscallError::EOPNOTSUPP),
+
+    //todo 
+    match file.ioctl(request, argp) {
+        Ok(ret) => Ok(ret),
+        Err(AxError::Unsupported) | Err(_) => Err(SyscallError::EOPNOTSUPP),
     }
+
 }
 
 /// 53

@@ -137,5 +137,10 @@ numeric_enum_macro::numeric_enum! {
         MKNOD = 259,
         FCHOWN = 93,
         PIDFD_OPEN = 434,
+        SYMLINK = 88,
+        LINK = 86,
+        SETXATTR = 188,
+        LSETXATTR = 189,
+        FSETXATTR = 190,
     }
 }

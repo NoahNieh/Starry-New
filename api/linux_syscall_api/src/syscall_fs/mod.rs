@@ -120,5 +120,9 @@ pub fn fs_syscall(syscall_id: fs_syscall_id::FsSyscallId, args: [usize; 6]) -> S
         CHOWN => Ok(0),
         #[cfg(target_arch = "x86_64")]
         MKNOD => Ok(0),
+        #[cfg(target_arch = "x86_64")]
+        SYMLINK | LINK => syscall_link(args),
+        #[cfg(target_arch = "x86_64")] // todo
+        SETXATTR | LSETXATTR | FSETXATTR => Ok(0),
     }
 }

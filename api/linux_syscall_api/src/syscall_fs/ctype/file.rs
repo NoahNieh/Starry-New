@@ -6,7 +6,7 @@ use alloc::sync::Arc;
 use alloc::vec;
 use alloc::vec::Vec;
 use axerrno::AxResult;
-use axfs::api::{File, FileIO, FileIOType, Kstat, OpenFlags, Read, Seek, SeekFrom, Write};
+use axfs::api::{File, FileIO, FileIOType, Kstat, OpenFlags, Read, Seek, SeekFrom, Write, FIONBIO, TCGETS, TIOCGPGRP, TIOCGWINSZ, TIOCSPGRP};
 
 use axlog::debug;
 
@@ -174,6 +174,26 @@ impl FileIO for FileDesc {
         // 把文件指针复原，因为获取len的时候指向了尾部
         self.seek(SeekFrom::Start(now_pos)).unwrap();
         now_pos != len
+    }
+
+    fn ioctl(&self, request: usize, arg1: usize) -> AxResult<isize> {
+        match request {
+            TCGETS | TIOCGPGRP | TIOCSPGRP | TIOCGWINSZ => Err(axerrno::AxError::InvalidInput),
+            FIONBIO => {
+                if arg1 == 0 {
+                    return Err(axerrno::AxError::InvalidInput);
+                }
+                let ptr_argp = arg1 as *const u32;
+                let nonblock = unsafe { core::ptr::read(ptr_argp) };
+                if nonblock == 1 {
+                    let old_status = self.get_status();
+                    let _ = self.set_status(old_status | OpenFlags::NON_BLOCK);
+                }
+                Ok(0)
+            },
+            FIOCLEX => Ok(0),
+            _ => Err(axerrno::AxError::Unsupported)
+        }
     }
 }
 
