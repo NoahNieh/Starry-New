@@ -38,6 +38,16 @@ pub fn sys_linkat(args: [usize; 6]) -> SyscallResult {
     }
 }
 
+/// 创建符号链接
+#[allow(dead_code)]
+pub fn syscall_symlinkat(args: [usize;6]) -> SyscallResult {
+    let target = args[0];
+    let newdirfd = args[1];
+    let linkpath = args[2];
+
+    sys_linkat([newdirfd, target, newdirfd, linkpath, 0, 0])
+}
+
 /// 功能:移除指定文件的链接
 /// # Arguments
 /// * `path`: *const u8, 要删除的链接的名字。
@@ -75,15 +85,21 @@ pub fn syscall_unlinkat(args: [usize; 6]) -> SyscallResult {
         }
         return Ok(0);
     }
-    let metadata = axfs::api::metadata(path.path()).unwrap();
-    if metadata.is_dir() {
-        return Err(SyscallError::EISDIR);
+    let metadata = axfs::api::metadata(path.path());
+    match metadata {
+        Ok(metadata) => {
+            if metadata.is_dir() {
+                return Err(SyscallError::EISDIR);
+            }
+            if remove_link(&path).is_none() {
+                debug!("unlink file error");
+                return Err(SyscallError::EINVAL);
+            }
+            Ok(0)
+        }
+        Err(axerrno::AxError::NotFound) => Err(SyscallError::ENOENT),
+        Err(_) => Err(SyscallError::EINVAL)
     }
-    if remove_link(&path).is_none() {
-        debug!("unlink file error");
-        return Err(SyscallError::EINVAL);
-    }
-    Ok(0)
 }
 
 ///
@@ -94,7 +110,6 @@ pub fn syscall_unlinkat(args: [usize; 6]) -> SyscallResult {
 pub fn syscall_link(args: [usize; 6]) -> SyscallResult {
     let target = args[0] as *const u8;
     let linkpath = args[1] as *const u8;
-
 
     let old_path = solve_path(AT_FDCWD, Some(target), false)?;
     let new_path = solve_path(AT_FDCWD, Some(linkpath), false)?;
